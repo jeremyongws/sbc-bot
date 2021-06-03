@@ -4,7 +4,7 @@ import math
 import re
 from datetime import datetime
 from threading import Event
-
+import pdb
 import tweepy
 from telegram.error import TelegramError
 from telegram.ext import Job
@@ -93,7 +93,11 @@ class FetchAndSendTweetsJob(Job):
                     "- Unknown exception, Status code {}".format(sc))
                 continue
 
+
             for tweet in tweets:
+                if tweet.retweeted or tweet.in_reply_to_status_id is not None: #reply or retweet
+                    continue 
+                # pdb.set_trace()
                 self.logger.debug("- Got tweet: {}".format(tweet.full_text))
 
                 # Check if tweet contains media, else check if it contains a link to an image

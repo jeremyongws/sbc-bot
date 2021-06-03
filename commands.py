@@ -11,6 +11,7 @@ from tweepy.error import TweepError
 
 from models import Subscription
 from util import with_touched_chat, escape_markdown, markdown_twitter_usernames
+import pdb
 
 TIMEZONE_LIST_URL = "https://en.wikipedia.org/wiki/List_of_tz_database_time_zones"
 
@@ -43,11 +44,63 @@ Here's the commands:
 - /set\_timezone - set your [timezone name]({}) (for example Asia/Tokyo)
 - /source - info about source code
 - /help - view help text
+- /sublist - subs to a specified twitter list
 This bot is free open source software, check /source if you want to host it!
 """.format(
             TIMEZONE_LIST_URL),
                   disable_web_page_preview=True,
                   parse_mode=telegram.ParseMode.MARKDOWN)
+
+@with_touched_chat
+def cmd_sub_list(bot, update, args, chat=None):
+    if len(args) < 1:
+        bot.reply(update, "Use /sublist listid...")
+        return
+    auth = OAuthHandler(bot.tw.auth.consumer_key, bot.tw.auth.consumer_secret)
+    # auth.request_token = json.loads(chat.twitter_request_token)
+    # api = tweepy.API(auth)
+    members = bot.tw.list_members(list_id = args[-1])
+    tw_usernames = [m.screen_name for m in members]
+    not_found = []
+    already_subscribed = []
+    successfully_subscribed = []
+
+    for tw_username in tw_usernames:
+        tw_user = bot.get_tw_user(tw_username)
+
+        if tw_user is None:
+            not_found.append(tw_username)
+            continue
+
+        if Subscription.select().where(
+                Subscription.tw_user == tw_user,
+                Subscription.tg_chat == chat).count() == 1:
+            already_subscribed.append(tw_user.full_name)
+            continue
+
+        Subscription.create(tg_chat=chat, tw_user=tw_user)
+        successfully_subscribed.append(tw_user.full_name)
+
+    reply = ""
+
+    if len(not_found) is not 0:
+        reply += "Sorry, I didn't find username{} {}\n\n".format(
+                     "" if len(not_found) is 1 else "s",
+                     ", ".join(not_found)
+                 )
+
+    if len(already_subscribed) is not 0:
+        reply += "You're already subscribed to {}\n\n".format(
+                     ", ".join(already_subscribed)
+                 )
+
+    if len(successfully_subscribed) is not 0:
+        reply += "I've added your subscription to {}".format(
+                     ", ".join(successfully_subscribed)
+                 )
+
+    bot.reply(update, reply)
+
 
 
 @with_touched_chat
